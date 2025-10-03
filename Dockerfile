@@ -1,22 +1,25 @@
-# Imagen base para compilar
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+# ====== Build stage (.NET 8) ======
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copiar los archivos del proyecto
+# Copia sólo el csproj para cachear restore
+COPY DoorController/DoorController.csproj DoorController/
+RUN dotnet restore DoorController/DoorController.csproj
+
+# Copia el resto del código
 COPY . .
 
-# Restaurar dependencias y compilar
-RUN dotnet restore
-RUN dotnet build -c Release -o /app/build
-RUN dotnet publish -c Release -o /app/publish
+# Publica en Release
+RUN dotnet publish DoorController/DoorController.csproj -c Release -o /app/publish
 
-# Imagen final
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS final
+# ====== Runtime stage (.NET 8) ======
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
-# Exponer el puerto 80
-EXPOSE 80
+EXPOSE 8080
+ENV ASPNETCORE_URLS=http://+:8080
+# Usa ENV para la cadena de conexión si quieres
+# ENV ConnectionStrings__Default="Data Source=app_data/doors.db"
 
-# Comando para ejecutar la aplicación
-ENTRYPOINT ["dotnet", "ControladorDePuertas.dll"]
+ENTRYPOINT ["dotnet", "DoorController.dll"]
