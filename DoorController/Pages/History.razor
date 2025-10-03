@@ -1,0 +1,57 @@
+@page "/historial"
+@inject DoorController.Data.DoorDbContext Db
+
+<h1>Historial de Aperturas/Cierres</h1>
+
+<label>Puerta: </label>
+<select @bind="selectedDoorId">
+    <option value="0">Todas</option>
+    @foreach (var d in doors)
+    {
+        <option value="@d.Id">@d.Name</option>
+    }
+</select>
+
+<table>
+    <thead>
+        <tr>
+            <th>Puerta</th>
+            <th>Acción</th>
+            <th>Fecha/Hora</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var e in filteredEvents)
+        {
+            <tr>
+                <td>@e.Door?.Name</td>
+                <td>@(e.Action == "Open" ? "Abrir" : "Cerrar")</td>
+                <td>@e.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    private int selectedDoorId = 0;
+    private List<DoorController.Models.Door> doors = new();
+    private List<DoorController.Models.DoorEvent> events = new();
+
+    protected override void OnInitialized()
+    {
+        doors = Db.Doors.OrderBy(d => d.Id).ToList();
+        events = Db.DoorEvents
+            .OrderByDescending(e => e.At)
+            .Take(500)
+            .ToList();
+
+        foreach (var e in events)
+        {
+            e.Door = doors.FirstOrDefault(d => d.Id == e.DoorId);
+        }
+    }
+
+    private IEnumerable<DoorController.Models.DoorEvent> filteredEvents =>
+        selectedDoorId == 0 ? events
+            : events.Where(e => e.DoorId == selectedDoorId);
+}

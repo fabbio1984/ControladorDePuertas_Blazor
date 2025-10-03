@@ -1,0 +1,58 @@
+@page "/"
+@inject DoorController.Data.DoorDbContext Db
+
+<h1>Puertas</h1>
+
+<div class="card-grid">
+@foreach (var d in doors)
+{
+    <div class="card">
+        <h3>@d.Name</h3>
+        <p>
+            Estado:
+            @if (d.IsOpen)
+            {
+                <span class="badge badge-open">Abierta</span>
+            }
+            else
+            {
+                <span class="badge badge-closed">Cerrada</span>
+            }
+        </p>
+        <p><small>Último cambio: @((d.LastChangedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")) ?? "N/A")</small></p>
+        <div style="display:flex; gap:8px">
+            <button class="btn btn-primary" @onclick="() => CambiarEstado(d.Id, true)" disabled="@(d.IsOpen)">Abrir</button>
+            <button class="btn btn-danger" @onclick="() => CambiarEstado(d.Id, false)" disabled="@(!d.IsOpen)">Cerrar</button>
+        </div>
+    </div>
+}
+</div>
+
+@code {
+    private List<DoorController.Models.Door> doors = new();
+
+    protected override void OnInitialized()
+    {
+        doors = Db.Doors.OrderBy(d => d.Id).ToList();
+    }
+
+    private void CambiarEstado(int doorId, bool abrir)
+    {
+        var door = Db.Doors.First(x => x.Id == doorId);
+        if (door.IsOpen == abrir) return;
+
+        door.IsOpen = abrir;
+        door.LastChangedAt = DateTime.UtcNow;
+
+        Db.DoorEvents.Add(new DoorController.Models.DoorEvent
+        {
+            DoorId = door.Id,
+            Action = abrir ? "Open" : "Close",
+            At = DateTime.UtcNow
+        });
+
+        Db.SaveChanges();
+        doors = Db.Doors.OrderBy(d => d.Id).ToList();
+        StateHasChanged();
+    }
+}
